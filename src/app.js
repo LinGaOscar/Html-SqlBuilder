@@ -371,6 +371,25 @@
         started.value = true
       }
 
+      // 清除所有 Schema 與查詢設定，返回歡迎畫面（使用者需要切換 Schema 時使用）
+      function clearAll() {
+        if (!confirm('確定要清除目前的 Schema 與所有查詢設定？')) return
+        rawDdl.value = ''
+        tables.value = []
+        selectedTable.value = ''
+        selectedColumns.value = []
+        where.value = []
+        orderBy.value = []
+        limit.value = 0
+        offset.value = 0
+        joins.value = []
+        joinMode.value = false
+        savedQueries.value = []
+        saveQueryName.value = ''
+        fileHandle.value = null
+        started.value = false
+      }
+
       const DEMO_SCHEMAS = [
         {
           label: '電商系統',
@@ -484,6 +503,10 @@ CREATE TABLE post_tags (
       // 將目前查詢狀態存入 savedQueries
       function saveCurrentQuery() {
         const name = saveQueryName.value.trim() || `查詢 ${savedQueries.value.length + 1}`
+        if (savedQueries.value.some(q => q.name === name)) {
+          showToast(`已有名為「${name}」的查詢，請改用其他名稱`, 'warn')
+          return
+        }
         const query = {
           name,
           selectedTable: selectedTable.value,
@@ -497,6 +520,7 @@ CREATE TABLE post_tags (
         }
         savedQueries.value = [...savedQueries.value, query]
         saveQueryName.value = ''
+        showToast(`已儲存「${name}」`)
       }
 
       // 將指定查詢設定還原至目前工作區
@@ -584,7 +608,7 @@ CREATE TABLE post_tags (
         saveCurrentQuery, loadQuery, deleteQuery,
         addToHistory, clearHistory, formatHistoryTime,
         pickSaveDir, clearSaveDir,
-        skipStart,
+        skipStart, clearAll,
         isDark, toggleTheme,
         copyHistorySql,
         DEMO_SCHEMAS, loadDemo,
@@ -641,8 +665,8 @@ CREATE TABLE post_tags (
 
             <!-- 選項卡片 -->
             <div class="flex flex-col gap-3">
-              <!-- 開啟現有 Schema -->
-              <button @click="openFromFile"
+              <!-- 開啟現有 Schema：Chrome/Edge 用 FSA；其他瀏覽器降級為 file input -->
+              <button v-if="fsSupported" @click="openFromFile"
                       class="group w-full text-left px-5 py-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all">
                 <div class="flex items-center justify-between">
                   <div>
@@ -652,9 +676,20 @@ CREATE TABLE post_tags (
                   <span class="text-zinc-300 dark:text-zinc-600 group-hover:text-indigo-400 transition-colors text-lg">→</span>
                 </div>
               </button>
+              <label v-else
+                     class="group w-full text-left px-5 py-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all cursor-pointer block">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">匯入 Schema 檔案</div>
+                    <div class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">載入現有的 .md 檔案</div>
+                  </div>
+                  <span class="text-zinc-300 dark:text-zinc-600 group-hover:text-indigo-400 transition-colors text-lg">→</span>
+                </div>
+                <input type="file" accept=".md,.txt" class="hidden" @change="importFromInput" />
+              </label>
 
-              <!-- 指定目錄新建 -->
-              <button @click="pickSaveDir()"
+              <!-- 指定目錄新建（僅 Chrome / Edge 支援） -->
+              <button v-if="fsSupported" @click="pickSaveDir()"
                       class="group w-full text-left px-5 py-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-indigo-300 dark:hover:border-indigo-700 hover:shadow-sm transition-all">
                 <div class="flex items-center justify-between">
                   <div>
@@ -721,16 +756,20 @@ CREATE TABLE post_tags (
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <!-- 已載入的資料表數量：放在方言選單左邊，讓使用者快速掌握目前 schema 規模 -->
+            <!-- 已載入的資料表數量 -->
             <span v-if="tables.length > 0"
                   class="text-[11px] font-medium text-zinc-400 dark:text-zinc-500 px-2 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 tabular-nums">
               {{ tables.length }} 張資料表
             </span>
-            <!-- 深色/淺色模式切換按鈕 -->
-            <!-- 主題切換：顯示「目前狀態」文字，點擊切換至另一模式 -->
+            <!-- 重設：清除所有資料並返回歡迎畫面 -->
+            <button v-if="tables.length > 0" @click="clearAll"
+                    class="text-[11px] px-2 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 hover:border-red-300 dark:hover:border-red-800 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition-colors">
+              重設
+            </button>
+            <!-- 深色/淺色模式切換：顯示切換後的模式名稱 -->
             <button @click="toggleTheme"
                     class="px-3 h-8 flex items-center rounded-md border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-              {{ isDark ? 'Dark' : 'Light' }}
+              {{ isDark ? 'Light' : 'Dark' }}
             </button>
             <!-- 儲存位置設定：讓使用者指定預設資料夾，避免每次另存都要手動選路徑 -->
             <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-xs">
@@ -872,7 +911,7 @@ CREATE TABLE post_tags (
             <!-- 右欄：SQL 預覽 + JOIN 開關 + 所有查詢條件 -->
             <div class="flex flex-col gap-5">
               <!-- SQL 即時預覽 -->
-              <SqlPreview :sql="sqlOutput" @copy="addToHistory" />
+              <SqlPreview :sql="sqlOutput" :dialect="dialect" @copy="addToHistory" @update-dialect="dialect = $event" />
 
               <!-- 以下僅在選定資料表後顯示 -->
               <template v-if="selectedTable">
@@ -905,11 +944,9 @@ CREATE TABLE post_tags (
                     :order-by="orderBy"
                     :limit="limit"
                     :offset="offset"
-                    :dialect="dialect"
                     @update-order-by="orderBy = $event"
                     @update-limit="limit = $event"
                     @update-offset="offset = $event"
-                    @update-dialect="dialect = $event"
                   />
                 </div>
               </template>
@@ -921,7 +958,7 @@ CREATE TABLE post_tags (
         <!-- DML 模板頁籤內容 -->
         <div v-show="activeTab === 'dml'" class="pt-4 flex flex-col gap-4">
           <p class="text-xs text-zinc-500 dark:text-zinc-400">
-            選擇資料表後，切換上方模式與佔位符風格，系統自動產生對應的 SQL 模板供後端使用。
+            切換至 <strong class="text-zinc-700 dark:text-zinc-300">SELECT / JOIN</strong> 頁籤選擇資料表，返回此頁即可依模式與佔位符風格自動產生對應的 SQL 模板。
           </p>
           <DmlPanel :table="currentTable" />
         </div>
@@ -970,7 +1007,8 @@ CREATE TABLE post_tags (
                   </div>
                   <span class="text-[10px] text-zinc-400 dark:text-zinc-500">{{ formatHistoryTime(h.timestamp) }}</span>
                 </div>
-                <pre class="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono truncate mb-2">{{ h.sql.split('\\n')[0] }}</pre>
+                <pre class="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono mb-2 leading-relaxed"
+                     style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">{{ h.sql }}</pre>
                 <div class="flex gap-2">
                   <button @click="loadQuery(h); activeTab = 'query'"
                           class="text-[11px] px-2 py-1 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">

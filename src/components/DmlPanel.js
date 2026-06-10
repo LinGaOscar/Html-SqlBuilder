@@ -59,6 +59,9 @@ window.DmlPanelComponent = {
           <label class="flex items-center gap-1 cursor-pointer">
             <input type="radio" v-model="placeholderStyle" value="positional" class="accent-indigo-500" /> ?
           </label>
+          <span class="text-[10px] text-zinc-300 dark:text-zinc-600 font-mono ml-1">
+            {{ placeholderStyle === 'named' ? '適用 PDO / SQLAlchemy' : '適用 JDBC / mysql2' }}
+          </span>
         </div>
       </div>
 

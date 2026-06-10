@@ -109,8 +109,17 @@ window.TablePanelComponent = {
         </ul>
       </div>
 
+      <!-- JOIN 模式啟用但尚未加入任何 JOIN：提示使用者去右側設定 -->
+      <div v-if="joinMode && displayTables.length <= 1"
+           class="flex-1 min-w-0 flex items-center justify-center rounded-lg border-2 border-dashed border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20"
+           style="min-height: 120px;">
+        <p class="text-xs text-indigo-500 dark:text-indigo-400 text-center leading-relaxed px-4">
+          在右側「JOIN 設定」加入資料表<br>即可在此勾選多表欄位
+        </p>
+      </div>
+
       <!-- JOIN 模式：垂直分組列表，所有表統一捲動，方便連續勾選 -->
-      <div v-if="joinMode && displayTables.length > 1"
+      <div v-else-if="joinMode && displayTables.length > 1"
            name="column-list-join"
            class="flex-1 min-w-0 flex flex-col rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden"
            style="max-height: max(360px, calc(100vh - 480px));">
@@ -190,7 +199,7 @@ window.TablePanelComponent = {
         </div>
       </div>
 
-      <!-- 一般模式：單表垂直列表 -->
+      <!-- 一般模式：單表垂直列表（joinMode 未啟用） -->
       <div v-else
            name="column-list"
            class="flex-1 min-w-0 pr-2 overflow-y-auto custom-scrollbar"

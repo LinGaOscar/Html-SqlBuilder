@@ -2,12 +2,13 @@
 // 格式化僅展開輸出排版，不修改 SQL 語意；複製內容跟隨當前顯示模式
 window.SqlPreviewComponent = {
   name: 'SqlPreview',
-  props: { sql: String },
-  emits: ['copy'],
+  props: { sql: String, dialect: String },
+  emits: ['copy', 'update-dialect'],
   setup(props, { emit }) {
     const { ref, computed } = Vue
     const copyLabel = ref('複製')
     const pretty = ref(false)
+    const DIALECTS = [['mysql','MySQL'],['postgresql','PG'],['mssql','MSSQL'],['oracle','Oracle']]
 
     /**
      * SQL 後處理格式化：展開多欄 SELECT、多條件 WHERE、多排序 ORDER BY。
@@ -59,12 +60,12 @@ window.SqlPreviewComponent = {
       setTimeout(() => { copyLabel.value = '複製' }, 1500)
     }
 
-    return { copyLabel, copySql, pretty, displaySql }
+    return { copyLabel, copySql, pretty, displaySql, DIALECTS }
   },
   template: `
     <div class="flex flex-col h-full">
-      <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-2">
+      <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <div class="flex items-center gap-2 flex-wrap">
           <h3 class="text-[11px] font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">SQL 預覽</h3>
           <button @click="pretty = !pretty"
                   :class="pretty
@@ -73,6 +74,17 @@ window.SqlPreviewComponent = {
                   class="text-[11px] px-2 py-0.5 rounded border transition-colors">
             格式化
           </button>
+          <!-- 方言選擇器：影響 SQL 分頁語法輸出，放在預覽區頭部最直覺 -->
+          <div class="flex rounded-md overflow-hidden border border-zinc-200 dark:border-zinc-700 text-[11px] font-medium">
+            <button v-for="d in DIALECTS" :key="d[0]"
+                    @click="$emit('update-dialect', d[0])"
+                    :class="['px-2.5 py-0.5 transition-colors border-r border-zinc-200 dark:border-zinc-700 last:border-r-0',
+                             dialect === d[0]
+                               ? 'bg-indigo-600 text-white'
+                               : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700']">
+              {{ d[1] }}
+            </button>
+          </div>
         </div>
         <button @click="copySql"
                 :disabled="!sql"
@@ -80,7 +92,7 @@ window.SqlPreviewComponent = {
           {{ copyLabel }}
         </button>
       </div>
-      <pre name="sql-preview" class="flex-1 bg-[#FAFAF7] dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 text-sm font-code text-emerald-800 dark:text-emerald-400 overflow-auto whitespace-pre-wrap leading-relaxed custom-scrollbar" style="max-height: max(200px, calc(100vh - 680px));">{{ displaySql || '-- 請選擇資料表與欄位' }}</pre>
+      <pre name="sql-preview" class="flex-1 bg-[#FAFAF7] dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 text-sm font-code text-emerald-800 dark:text-emerald-400 overflow-auto whitespace-pre-wrap leading-relaxed custom-scrollbar" style="max-height: max(300px, calc(100vh - 580px));">{{ displaySql || '-- 請選擇資料表與欄位' }}</pre>
     </div>
   `
 }
