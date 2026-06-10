@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Prism** 是一個離線 SQL Query Builder，核心設計原則：
 
-- 單一自含 HTML 檔案，零安裝、零依賴
+- 單一 HTML 目錄，零安裝、零建置步驟（vendor/ 與 tailwind.css 已 commit）
 - 匯入 `.sql` DDL 檔 → 視覺化選欄 → 自動產生 SQL
 - 所有運算在瀏覽器本地執行，資料不離開本機
-- **僅支援 Chrome / Edge**（依賴 File System Access API）
+- **完整功能需 Chrome / Edge**（File System Access API）；其他瀏覽器降級為手動匯入/匯出
 
 ## 開發環境
 
@@ -50,13 +50,13 @@ window.parseDDL(`CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))`)
 
 ## 技術棧
 
-| 用途 | 技術 | 開發載入 | 發布 |
-|------|------|---------|------|
-| 響應式 UI | Vue 3 Global Build | CDN (unpkg) | vendor inline |
-| 樣式 | Tailwind CSS v4 | `tailwind.css` 外部檔 | inline |
-| ERD 圖表 | 自製 SVG 渲染器（ErdPanel.js） | `<script src>` | inline |
-| DDL 解析 | 自製 Parser（IIFE） | `<script src>` | inline |
-| 目錄持久化 | IndexedDB | — | — |
+| 用途 | 技術 |
+|------|------|
+| 響應式 UI | Vue 3 Global Build（`vendor/vue.global.js`，IIFE，`window.Vue`） |
+| 樣式 | Tailwind CSS v4（`storage/tailwind.css`，standalone CLI 產生） |
+| ERD 圖表 | 自製 SVG 渲染器（`ErdPanel.js`，含 MutationObserver 監聽主題切換） |
+| DDL 解析 | 自製 Parser（Regex + 狀態機，IIFE） |
+| 目錄持久化 | IndexedDB（`idb-handles.js`） |
 
 所有模組皆為 IIFE，透過 `window.*` 全域暴露，無 ESM import。
 
@@ -64,11 +64,11 @@ window.parseDDL(`CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))`)
 
 ## 架構設計
 
-### 模組載入順序（index.html 與 build.ps1 需保持一致）
+### 模組載入順序（index.html 需保持此順序）
 
 ```
 Vue
-  → parser/ddl-parser.js          (window.parseDDL)
+  → parser/ddl-parser.js          (window.parseDDL, window.detectDialect)
   → storage/idb-handles.js        (window.idbHandles)
   → storage/file-system.js        (window.fsStorage)
   → storage/md-format.js          (window.mdFormat)
@@ -126,15 +126,48 @@ SQL 預覽區即時更新
 
 ### 歡迎畫面
 
-`started` ref 控制歡迎畫面顯示（`showStart = !started && !rawDdl`）。`skipMode` ref 在使用者選擇「試試看」時為 `true`，用於阻止 `onMounted` 的非同步 `saveDir` 還原覆蓋使用者選擇。
+`started` ref 控制歡迎畫面顯示（`showStart = !started && !rawDdl`）。`skipMode` ref 在使用者選擇「空白開始」時為 `true`，用於阻止 `onMounted` 的非同步 `saveDir` 還原覆蓋使用者選擇。
+
+歡迎畫面的「開啟 Schema 檔案」和「選擇儲存位置」按鈕皆以 `v-if="fsSupported"` 控制，非 FSA 瀏覽器改顯示 file input 匯入方案。
+
+### app.js 主要函式
+
+| 函式 | 說明 |
+|------|------|
+| `handleParse()` | 解析 rawDdl，自動偵測方言，更新 tables |
+| `handleAppend(ddl)` | 追加解析，依 tableName 去重 |
+| `importSqlFile(event)` | 從 .sql 檔觸發解析或追加 |
+| `clearAll()` | 清除所有資料並返回歡迎畫面（需 confirm） |
+| `saveCurrentQuery()` | 儲存查詢至 savedQueries，重複名稱時 warn |
+| `loadQuery(q)` | 還原查詢設定（含 dialect） |
+| `addToHistory()` | 複製 SQL 時自動記錄 |
+| `loadDemo(demo)` | 載入內建範例 Schema |
+| `goToTable(name)` | ERD 點擊後切換 table 並跳回 query tab |
 
 ### SQL 方言支援
 
 `dialect` ref 控制分頁語法差異：`mysql` / `postgresql` / `mssql` / `oracle`
 
+方言選擇器顯示於 **SqlPreview 工具列**（與 SQL 輸出並排），並同時作為 prop 傳入所有 builder。
+
 ### SQL 格式化（SqlPreview.js）
 
 `formatSql()` 展開多欄 SELECT、多條件 WHERE（AND）、多排序 ORDER BY，每項獨立一行。由 `pretty` ref 切換，複製內容跟隨格式化狀態。
+
+`SqlPreview` props：`sql`、`dialect`；emits：`copy`、`update-dialect`。
+
+### JOIN 模式（TablePanel.js）
+
+- `joinMode && displayTables.length <= 1`：顯示虛線引導框，提示使用者至右側設定 JOIN
+- `joinMode && displayTables.length > 1`：切換為垂直分組列表，顯示 FK badge（`.join-fk-badge`），顯示已選欄位數
+- 一般模式：單表垂直列表
+
+### 線上試用版限制
+
+`isOnlineDemo = window.location.hostname === 'lingaoscar.github.io'`
+
+- 開啟 / 儲存 / 追加按鈕顯示為 disabled
+- History 頁籤顯示「試用版不支援」提示
 
 ### 儲存格式（.md）
 
@@ -151,4 +184,8 @@ DDL 與 savedQueries 以 code block 結構序列化，人類可讀且適合版�
 
 ## UI 慣例
 
-- 可捲動面板（TablePanel 表格清單、欄位清單、SqlPreview）統一使用 `max-height: 480px` + `custom-scrollbar` class，套用於最外層容器 div，**不在內層 ul 另加捲動**
+- 可捲動面板（TablePanel 表格清單、欄位清單）統一使用 `max-height: max(360px, calc(100vh - 480px))` + `custom-scrollbar` class
+- SqlPreview 使用 `max-height: max(300px, calc(100vh - 580px))`
+- 以上皆套用於最外層容器 div，**不在內層 ul 另加捲動**
+- 所有使用者操作回饋一律用 `showToast()`，不使用 `alert()` 或直接操作 DOM
+- 方言選擇器（segmented buttons）固定放在 SqlPreview 工具列，不放在 Header
