@@ -980,7 +980,7 @@ CREATE TABLE post_tags (
             <p class="text-xs text-zinc-400 dark:text-zinc-500 text-center max-w-xs leading-relaxed">
               查詢歷史記錄需要本地儲存支援。請下載專案並在本地開啟，即可使用完整功能。
             </p>
-            <a href="https://github.com/LinGaOscar/Prism-SQL-Builder"
+            <a href="https://github.com/LinGaOscar/Html-SqlBuilder"
                target="_blank"
                class="mt-2 text-xs px-4 py-2 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
               前往 GitHub 下載

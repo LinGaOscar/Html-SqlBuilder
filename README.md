@@ -1,10 +1,12 @@
 # Prism SQL Builder
 
+> 系統名稱為 **Prism**；本 repo 名稱為 `Html-SqlBuilder`。
+
 離線 SQL Query Builder。用 Chrome / Edge 開啟 `index.html`，匯入 DDL，視覺化選欄並即時產生 SQL。
 
-**[線上試用 →](https://lingaoscar.github.io/Prism-SQL-Builder/)**
+**[線上試用 →](https://lingaoscar.github.io/Html-SqlBuilder/)**
 
-[![Deploy](https://github.com/LinGaOscar/Prism-SQL-Builder/actions/workflows/deploy.yml/badge.svg)](https://github.com/LinGaOscar/Prism-SQL-Builder/actions/workflows/deploy.yml)
+[![Deploy](https://github.com/LinGaOscar/Html-SqlBuilder/actions/workflows/deploy.yml/badge.svg)](https://github.com/LinGaOscar/Html-SqlBuilder/actions/workflows/deploy.yml)
 
 ---
 
